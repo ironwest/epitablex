@@ -126,7 +126,7 @@ make_single_column <- function(data, stats, stats_accuracy, counts, percent_accu
                       perc = scales::number(100*n/total,accuracy=percent_accuracy)) |>
         dplyr::mutate(res = stringr::str_glue(gluestring)) |>
         dplyr::select(var, type, res) |>
-        dplyr::mutate(res = dplyr::if_else(is.na(type),NA_character_, res))
+        dplyr::mutate(res = dplyr::if_else(is.na(type),NA_character_, as.character(res)))
 
     })
 
@@ -138,6 +138,7 @@ make_single_column <- function(data, stats, stats_accuracy, counts, percent_accu
   return(single_column_data)
 }
 make_base_table <- function(data,  byvars, stats, stats_accuracy, counts, percent_accuracy){
+  browser()
   total_column <- make_single_column(data, stats, stats_accuracy, counts, percent_accuracy)
 
   totaldata <- total_column |>
@@ -147,7 +148,18 @@ make_base_table <- function(data,  byvars, stats, stats_accuracy, counts, percen
     dplyr::select(header, columns = data) |>
     dplyr::mutate(n = nrow(data))
 
-  grpdata <- data |> dplyr::group_nest(!!!rlang::syms(byvars))
+  if(length(byvars) == 1){
+    if(byvars == ""){
+      # do nothing
+      stopifnot("column name , '...temporary_group_zero2346598' is used in the package please rename in prior to use epitablex package" = !("...temporary_group_zero2346598" %in% colnames(data)))
+      grpdata <- data |> dplyr::mutate(...temporary_group_zero2346598 = "...temporary_group_zero2346598") |> dplyr::group_nest(...temporary_group_zero2346598)
+      byvars <- "...temporary_group_zero2346598"
+    }else{
+      grpdata <- data |> dplyr::group_nest(!!!rlang::syms(byvars))
+    }
+  }else{
+    grpdata <- data |> dplyr::group_nest(!!!rlang::syms(byvars))
+  }
 
   grpdata <- grpdata |>
     dplyr::mutate(columns = purrr::map(data, ~{
@@ -166,9 +178,14 @@ make_base_table <- function(data,  byvars, stats, stats_accuracy, counts, percen
 
   finaldata <- dplyr::bind_rows(totaldata, grpdata)
 
+  if("...temporary_group_zero2346598" %in% finaldata$header){
+    finaldata <- finaldata |> dplyr::filter(header != "...temporary_group_zero2346598")
+  }
+
   return(finaldata)
 }
 make_wide_table <- function(basetable, add_n = "n = {n}", pos_total = "left", roworder = NA){
+
   stopifnot("pos_total need to be left, right or none" = pos_total %in% c("left","right","none"))
 
   #make widetable from basetable data.
@@ -202,7 +219,7 @@ make_wide_table <- function(basetable, add_n = "n = {n}", pos_total = "left", ro
 
   #tidy widetable data
   widetable <- widetable |>
-    dplyr::mutate(var = dplyr::if_else(is.na(type),var, stringr::str_glue("\t{type}"))) |>
+    dplyr::mutate(var = dplyr::if_else(is.na(type),var, as.character(stringr::str_glue("\t{type}")))) |>
     dplyr::select(!type)
 
 
@@ -240,7 +257,7 @@ make_output_flextable <- function(basetable, widetable, add_n = "N = {n}"){
 }
 
 make_output <- function(basetable, widetable, add_n = "N = {n}", as_md = FALSE){
-
+  browser()
   result <- widetable
 
   if(!is.character(add_n)){
@@ -256,7 +273,7 @@ make_output <- function(basetable, widetable, add_n = "N = {n}", as_md = FALSE){
   }
 
   if(as_md){
-    result <- result |> knitr::kable(format="md")
+    result <- result |> knitr::kable()
   }
 
   return(result)
@@ -271,9 +288,9 @@ epitable1 <- function(data,
                       percent_accuracy = 0.1,
                       add_n = "n = {n}", pos_total = "left", output = "md"){
 
-  default_stat <- "{mean}±{sd}"
+  default_stat  <- "{mean}±{sd}"
   default_count <- "{n}({perc})"
-  stopifnot("byvars should be colname in data" = {all(byvars %in% colnames(data))})
+
 
   #PROCESS ROWORDER--------------------------------------------------
   #if roworder=="" then make roworder depend on colnames of data
@@ -337,6 +354,16 @@ epitable1 <- function(data,
     }
   }
 
+  #PROCESS byvars-----------------------------------------------------------
+  if(length(byvars) == 1){
+    if(byvars == ""){
+      #do nothing
+    }else{
+      stopifnot("byvars should be colnames in data" = byvars %in% colnames(data))
+    }
+  }else{
+    stopifnot("byvars should be colnames in data" = all(byvars) %in% colnames(data))
+  }
 
   basetable <- make_base_table(data,  byvars, stats, stats_accuracy, counts, percent_accuracy)
   widetable <- make_wide_table(basetable, add_n = add_n, pos_total = pos_total, roworder = roworder)
@@ -350,11 +377,11 @@ epitable1 <- function(data,
 
 
 data |>
-  dplyr::select(!X4) |>
+  #dplyr::select(!X4) |>
   epitable1(
-    byvars=c("X2"),
+    byvars = "X4",
     stats = list("{mean}±{sd}" = c("aa","bb"),
-                       "{p50}[{p25}-{p75}]" = c("cc","dd")),
+                 "{p50}[{p25}-{p75}]" = c("cc","dd")),
     pos_total = "right",
     output="md")
 
